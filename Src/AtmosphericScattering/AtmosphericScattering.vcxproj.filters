@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="atmoscatter.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="atmosphere.cpp" />
+    <ClCompile Include="renderer.cpp" />
+    <ClCompile Include="gui.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="atmo_def.h" />
+    <ClInclude Include="atmosphere.h" />
+    <ClInclude Include="renderer.h" />
+    <ClInclude Include="gui.h" />
+  </ItemGroup>
+</Project>

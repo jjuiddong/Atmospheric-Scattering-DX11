@@ -1,0 +1,73 @@
+
+
+Atmoshperic Scattering Perfect Study
+	https://www.alanzucconi.com/2017/10/10/atmospheric-scattering-1/
+
+
+atmosphere scatter
+	https://github.com/OzgurCerlet/precomputed_atmospheric_scattering_dx11
+	https://github.com/wwwtyro/glsl-atmosphere
+	https://developer.nvidia.com/gpugems/GPUGems2/gpugems2_chapter16.html
+
+
+GPU Gems2
+	- Chapter 16. Accurate Atmospheric Scatterring
+	- https://developer.nvidia.com/gpugems/GPUGems2/gpugems2_chapter16.html
+
+
+GameDev.net
+	- Real-Time Atmospheric Scattering
+	- By Sean O'Neal
+
+Sky/Atmospheric Rendering
+	- http://vterrain.org/Atmosphere/
+
+Proland
+	- http://proland.inrialpes.fr/publications.html
+
+Outdoor Light Scattering Sample Update
+	- Egor Yusov (Intel)
+	- https://software.intel.com/en-us/blogs/2013/09/19/otdoor-light-scattering-sample-update
+	- https://github.com/GameTechDev/OutdoorLightScattering
+
+Followup to Atmospheric 
+	- Atmospheric Render 에 관련된 논문 및 링크모음
+	- http://www.thetenthplanet.de/archives/4519
+
+
+http://aviationweather.tistory.com/195
+https://m.blog.naver.com/PostView.nhn?blogId=tnehf18&logNo=220714666987&proxyReferer=https%3A%2F%2Fwww.google.co.kr%2F
+
+
+파장이 길면 투과되고, 짧을 수록 산란된다.
+입자가 파장보다 작을 때 산란이 일어난다.
+
+
+레일리 산란, 파장의 길이에 반비례하게 산란된다.
+미 산란, 파장의 길이가 입자와 비슷하면, 파장길이에 상관없이 산란한다. 그래서 뿌옇게 보인다. 구름, 안개
+
+산란은 분자의 밀도와 연관된다. 고도가 높을 수록 밀도가 현저히 떨어진다.
+
+오존은 빛을 흡수하지만, 대부분 반사된다.
+
+libRadTran 라이브러리를 이용해서 산란에 관련된 프로그래밍을
+짜는 경우가 많다.
+
+분자는 빛을 흡수하지 않는다. 모두 산란한다.
+
+산란 상수는 온도 15도씨 를 기준으로 한다.
+
+온도는 8km 마다 기하급수로 떨어진다.
+
+albedo, 반사율, 지면 반사율은 고정
+
+공기입자 크기는 고정이다. 1.2km
+
+파장과 관계 없이 공기입자 산란율은 0.8 로한다.
+
+turbidity : 흐림
+
+chromaticity : 색도
+
+zenith angle : 지평면 Normal 벡터와 태양 중심 벡터의 사이각
+
