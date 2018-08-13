@@ -1,17 +1,9 @@
 
 #include "stdafx.h"
 #include "renderer.h"
-//#include "common.h"
 #include <dxgi1_5.h>
-//#include <d3dcompiler.h>
-//#include <d3d11sdklayers.h>
-//#include "D:/Octarine/OctarineImage/octarine_image.h"
-
-//#include "renderer.h"
 #include "gui.h"
-//#include "window.h"
 #include "atmosphere.h"
-//#include "error.h"
 
 using namespace graphic;
 
@@ -21,18 +13,12 @@ using namespace graphic;
 
 namespace renderer {
 
-	//ComPtr<ID3D11Device> com_device = nullptr;
-	//ComPtr<ID3D11DeviceContext> com_device_context = nullptr;
-	//ComPtr<IDXGISwapChain1> com_swap_chain = nullptr;
-	//ComPtr<ID3D11RenderTargetView> com_backbuffer_rtv = nullptr;
 	ComPtr<ID3D11RasterizerState> com_rasterizer_state = nullptr;
 	ComPtr<ID3D11SamplerState> com_sampler_state = nullptr;
 	ComPtr<ID3D11DepthStencilState> com_depth_stencil_state = nullptr;
 	ComPtr<ID3D11BlendState> com_blend_state_01 = nullptr;
 	ComPtr<ID3D11BlendState> com_blend_state_0011 = nullptr;
 
-	static uint32_t backbuffer_width;
-	static uint32_t backbuffer_height;
 	static bool is_full_precision_rgb_supported = false;
 	static int last_predefined_view_index = 0;
 	static float fov_y_angle_deg = 50.f;
@@ -57,80 +43,6 @@ namespace renderer {
 		} data;
 		ComPtr<ID3D11Buffer> com_cb = nullptr;
 	} atmosphere_cb = {};
-
-	void create_texture_2d(graphic::cRenderer &renderer
-		, uint32_t width, uint32_t height, D3D11_SUBRESOURCE_DATA *p_init_data
-		, DXGI_FORMAT format, Texture2D* p_out_texture) {
-		p_out_texture->com_tex.Reset();
-		p_out_texture->com_srv.Reset();
-		p_out_texture->com_rtv.Reset();
-
-		HRESULT h_result = 0;
-		D3D11_TEXTURE2D_DESC desc = {};
-		desc.Width = width;
-		desc.Height = height;
-		desc.MipLevels = 1;
-		desc.ArraySize = 1;
-		desc.Format = format;
-		desc.SampleDesc.Count = 1;
-		desc.Usage = D3D11_USAGE_DEFAULT;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-
-		h_result = renderer.GetDevice()->CreateTexture2D(&desc, p_init_data, p_out_texture->com_tex.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateTexture2D", (DWORD)h_result);
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		srv_desc.Format = format;
-		srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		srv_desc.Texture2D.MipLevels = 1;
-
-		h_result = renderer.GetDevice()->CreateShaderResourceView(p_out_texture->com_tex.Get(), &srv_desc, p_out_texture->com_srv.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateShaderResourceView", (DWORD)h_result);
-
-		D3D11_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-		rtv_desc.Format = format;
-		rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-
-		h_result = renderer.GetDevice()->CreateRenderTargetView(p_out_texture->com_tex.Get(), &rtv_desc, p_out_texture->com_rtv.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateRenderTargetView", (DWORD)h_result);
-	}
-
-	void create_texture_3d(graphic::cRenderer &renderer
-		, uint32_t width, uint32_t height, uint32_t depth, D3D11_SUBRESOURCE_DATA *p_init_data
-		, DXGI_FORMAT format, Texture3D* p_out_texture) {
-		p_out_texture->com_tex.Reset();
-		p_out_texture->com_srv.Reset();
-		p_out_texture->com_rtv.Reset();
-
-		HRESULT h_result = 0;
-		D3D11_TEXTURE3D_DESC desc = {};
-		desc.Width = width;
-		desc.Height = height;
-		desc.Depth = depth;
-		desc.MipLevels = 1;
-		desc.Format = format;
-		desc.Usage = D3D11_USAGE_DEFAULT;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-
-		h_result = renderer.GetDevice()->CreateTexture3D(&desc, p_init_data, p_out_texture->com_tex.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateTexture3D", (DWORD)h_result);
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
-		srv_desc.Format = format;
-		srv_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
-		srv_desc.Texture3D.MipLevels = 1;
-
-		h_result = renderer.GetDevice()->CreateShaderResourceView(p_out_texture->com_tex.Get(), &srv_desc, p_out_texture->com_srv.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateShaderResourceView", (DWORD)h_result);
-
-		D3D11_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-		rtv_desc.Format = format;
-		rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE3D;
-		rtv_desc.Texture3D.WSize = -1;
-
-		h_result = renderer.GetDevice()->CreateRenderTargetView(p_out_texture->com_tex.Get(), &rtv_desc, p_out_texture->com_rtv.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateRenderTargetView", (DWORD)h_result);
-	}
 
 	void compile_and_create_shader(graphic::cRenderer &renderer
 		, ComPtr<ID3D11VertexShader>& com_vs, const wchar_t* p_name) {
@@ -426,7 +338,8 @@ namespace renderer {
 
 		{
 			float fov_y_angle_rad = XMConvertToRadians(fov_y_angle_deg);
-			float aspect_ratio = (float)backbuffer_width / backbuffer_height;
+			//float aspect_ratio = (float)backbuffer_width / backbuffer_height;
+			float aspect_ratio = renderer.m_viewPort.m_vp.Width / renderer.m_viewPort.m_vp.Height;
 			float scale_y = (float)(1.0 / tan(fov_y_angle_rad / 2.0));
 			float scale_x = scale_y / aspect_ratio;
 			XMFLOAT4X4 clip_from_view = { // left-handed reversed-z infinite projection
@@ -512,14 +425,6 @@ namespace renderer {
 		return 0;
 	}
 
-	//ComPtr<ID3D11Device>& get_device() {
-	//	return com_device;
-	//}
-
-	//ComPtr<ID3D11DeviceContext>& get_device_context(){
-	//	return com_device_context;
-	//}
-
 	ComPtr<ID3D11SamplerState>& get_sampler(){
 		return com_sampler_state;
 	}
@@ -553,8 +458,6 @@ namespace renderer {
 		com_device_context->VSSetConstantBuffers(0, 1, atmosphere_cb.com_cb.GetAddressOf());
 		com_device_context->VSSetShader(atmosphere::get_demo_vs().Get(), 0, 0);
 
-		//D3D11_VIEWPORT viewport = { 0.0, 0.0, (float)backbuffer_width, (float)backbuffer_height, 0.0, 1.0 };
-		//com_device_context->RSSetViewports(1, &viewport);
 		renderer.m_viewPort.Bind(renderer);
 		com_device_context->RSSetState(com_rasterizer_state.Get());
 
@@ -562,10 +465,10 @@ namespace renderer {
 		ID3D11SamplerState *a_ps_samplers[] = { com_sampler_state.Get() };
 		com_device_context->PSSetSamplers(0, count_of(a_ps_samplers), a_ps_samplers);
 		ID3D11ShaderResourceView *a_srvs[] = { 
-			atmosphere::get_transmittance_texture().com_srv.Get()
-			, atmosphere::get_scattering_texture().com_srv.Get()
-			, atmosphere::get_single_mie_scattering_texture().com_srv.Get()
-			, atmosphere::get_irradiance_texture().com_srv.Get() 
+			atmosphere::get_transmittance_texture().m_srv
+			, atmosphere::get_scattering_texture().m_srv
+			, atmosphere::get_single_mie_scattering_texture().m_srv
+			, atmosphere::get_irradiance_texture().m_srv 
 		};
 		com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
 		com_device_context->PSSetShader(atmosphere::get_demo_ps().Get(), 0, 0);

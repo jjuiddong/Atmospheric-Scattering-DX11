@@ -324,17 +324,14 @@ namespace atmosphere
 	ComPtr<ID3D11PixelShader> a_com_precompute_shaders[num_precompute_shader_type] = { nullptr };
 	ComPtr<ID3D11GeometryShader> com_precompute_gs = nullptr;
 
-	renderer::Texture2D transmittance_texture;
-	renderer::Texture2D irradiance_texture;
-	renderer::Texture2D delta_irradiance_texture;
-	renderer::Texture3D scattering_texture;
-	renderer::Texture3D single_mie_scattering_texture;
-	renderer::Texture3D delta_rayleigh_scattering_texture;
-	renderer::Texture3D delta_mie_scattering_texture;
-	renderer::Texture3D delta_scattering_density_texture;
-
-	renderer::Texture2D test_irradiance_texture;
-	renderer::Texture2D test_delta_irradiance_texture;
+	graphic::cRenderTarget2d transmittance_texture;
+	graphic::cRenderTarget2d irradiance_texture;
+	graphic::cRenderTarget2d delta_irradiance_texture;
+	graphic::cRenderTarget3d scattering_texture;
+	graphic::cRenderTarget3d single_mie_scattering_texture;
+	graphic::cRenderTarget3d delta_rayleigh_scattering_texture;
+	graphic::cRenderTarget3d delta_mie_scattering_texture;
+	graphic::cRenderTarget3d delta_scattering_density_texture;
 
 	double a_wavelengths[num_lambda_slices];
 	double a_solar_irradiance_coeffs[num_lambda_slices];
@@ -371,19 +368,19 @@ namespace atmosphere
 		return com_demo_ps;
 	}
 
-	renderer::Texture2D& get_transmittance_texture(){
+	graphic::cRenderTarget2d& get_transmittance_texture(){
 		return transmittance_texture;
 	}
 
-	renderer::Texture3D & get_scattering_texture(){
+	graphic::cRenderTarget3d & get_scattering_texture(){
 		return scattering_texture;
 	}
 
-	renderer::Texture3D & get_single_mie_scattering_texture(){
+	graphic::cRenderTarget3d & get_single_mie_scattering_texture(){
 		return single_mie_scattering_texture;
 	}
 
-	renderer::Texture2D & get_irradiance_texture(){
+	graphic::cRenderTarget2d & get_irradiance_texture(){
 		return irradiance_texture;
 	}
 
@@ -623,22 +620,14 @@ namespace atmosphere
 		DXGI_FORMAT full_precision_format = DXGI_FORMAT_R32G32B32_FLOAT;
 		if(!renderer::check_full_precision_rgb_support()) { full_precision_format = DXGI_FORMAT_R32G32B32A32_FLOAT; };
 		DXGI_FORMAT format = use_half_precision ? DXGI_FORMAT_R16G16B16A16_FLOAT : full_precision_format;
-		renderer::create_texture_2d(renderer, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT
-			, nullptr, format, &transmittance_texture);
-		renderer::create_texture_2d(renderer, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT
-			, nullptr, format, &irradiance_texture);
-		renderer::create_texture_2d(renderer, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT
-			, nullptr, format, &delta_irradiance_texture);
-		renderer::create_texture_3d(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT
-			, SCATTERING_TEXTURE_DEPTH, nullptr, format, &scattering_texture);
-		renderer::create_texture_3d(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT
-			, SCATTERING_TEXTURE_DEPTH, nullptr, format, &single_mie_scattering_texture);
-		renderer::create_texture_3d(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT
-			, SCATTERING_TEXTURE_DEPTH, nullptr, format, &delta_rayleigh_scattering_texture);
-		renderer::create_texture_3d(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT
-			, SCATTERING_TEXTURE_DEPTH, nullptr, format, &delta_mie_scattering_texture);
-		renderer::create_texture_3d(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT
-			, SCATTERING_TEXTURE_DEPTH, nullptr, format, &delta_scattering_density_texture);
+		transmittance_texture.Create(renderer, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, format);
+		irradiance_texture.Create(renderer, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, format);
+		delta_irradiance_texture.Create(renderer, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, format);
+		scattering_texture.Create(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH, format);
+		single_mie_scattering_texture.Create(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH, format);
+		delta_rayleigh_scattering_texture.Create(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH, format);
+		delta_mie_scattering_texture.Create(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH, format);
+		delta_scattering_density_texture.Create(renderer, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, SCATTERING_TEXTURE_DEPTH, format);
 	}
 
 	void create_demo_pixel_shader(graphic::cRenderer &renderer) {
@@ -686,7 +675,7 @@ namespace atmosphere
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
 			com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
-			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.com_rtv.Get()};
+			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.m_rtv};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			com_device_context->Draw(4, 0);
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
@@ -696,10 +685,10 @@ namespace atmosphere
 		{	// Precompute Direct Irradiance
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
-			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.com_srv.Get() };
+			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.m_srv };
 			com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
 			com_device_context->PSSetShader(a_com_precompute_shaders[DELTA_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
-			ID3D11RenderTargetView *a_rtvs[] = { delta_irradiance_texture.com_rtv.Get(), irradiance_texture.com_rtv.Get() };
+			ID3D11RenderTargetView *a_rtvs[] = { delta_irradiance_texture.m_rtv, irradiance_texture.m_rtv };
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			if(need_blend) com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
 			com_device_context->Draw(4, 0);
@@ -712,14 +701,14 @@ namespace atmosphere
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
 			com_device_context->GSSetShader(com_precompute_gs.Get(), 0, 0);
-			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.com_srv.Get() };
+			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.m_srv };
 			com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
 			com_device_context->PSSetShader(a_com_precompute_shaders[SINGLE_SCATTERING_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = {
-				delta_rayleigh_scattering_texture.com_rtv.Get()
-				, delta_mie_scattering_texture.com_rtv.Get()
-				, scattering_texture.com_rtv.Get()
-				, single_mie_scattering_texture.com_rtv.Get()
+				delta_rayleigh_scattering_texture.m_rtv
+				, delta_mie_scattering_texture.m_rtv
+				, scattering_texture.m_rtv
+				, single_mie_scattering_texture.m_rtv
 			};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			if(need_blend) com_device_context->OMSetBlendState(renderer::get_blend_state_0011().Get(), NULL, 0xffffffff);
@@ -737,15 +726,15 @@ namespace atmosphere
 					D3D11_VIEWPORT viewport = { 0.0, 0.0, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, 0.0, 1.0 };
 					com_device_context->RSSetViewports(1, &viewport);
 					ID3D11ShaderResourceView *a_srvs[] = {
-						transmittance_texture.com_srv.Get()
-						, delta_rayleigh_scattering_texture.com_srv.Get()
-						, delta_mie_scattering_texture.com_srv.Get()
-						, delta_rayleigh_scattering_texture.com_srv.Get()
-						, delta_irradiance_texture.com_srv.Get()
+						transmittance_texture.m_srv
+						, delta_rayleigh_scattering_texture.m_srv
+						, delta_mie_scattering_texture.m_srv
+						, delta_rayleigh_scattering_texture.m_srv
+						, delta_irradiance_texture.m_srv
 					};
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
 					com_device_context->PSSetShader(a_com_precompute_shaders[SCATTERING_DENSITY_SHADER_INDEX].Get(), 0, 0);
-					ID3D11RenderTargetView *a_rtvs[] = { delta_scattering_density_texture.com_rtv.Get() };
+					ID3D11RenderTargetView *a_rtvs[] = { delta_scattering_density_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 
 					precompute_cb.data.scattering_order = scattering_order;
@@ -765,14 +754,14 @@ namespace atmosphere
 					D3D11_VIEWPORT viewport = { 0.0, 0.0, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 					com_device_context->RSSetViewports(1, &viewport);
 					ID3D11ShaderResourceView *a_srvs[] = {
-						delta_rayleigh_scattering_texture.com_srv.Get()
-						, delta_mie_scattering_texture.com_srv.Get()
-						, delta_rayleigh_scattering_texture.com_srv.Get() };
+						delta_rayleigh_scattering_texture.m_srv
+						, delta_mie_scattering_texture.m_srv
+						, delta_rayleigh_scattering_texture.m_srv };
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
 					com_device_context->PSSetShader(a_com_precompute_shaders[INDIRECT_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { 
-						delta_irradiance_texture.com_rtv.Get()
-						, irradiance_texture.com_rtv.Get() };
+						delta_irradiance_texture.m_rtv
+						, irradiance_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 					com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
 					com_device_context->Draw(4, 0);
@@ -788,14 +777,14 @@ namespace atmosphere
 					D3D11_VIEWPORT viewport = { 0.0, 0.0, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, 0.0, 1.0 };
 					com_device_context->RSSetViewports(1, &viewport);
 					ID3D11ShaderResourceView *a_srvs[] = { 
-						transmittance_texture.com_srv.Get()
-						, delta_scattering_density_texture.com_srv.Get() };
+						transmittance_texture.m_srv
+						, delta_scattering_density_texture.m_srv };
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
 					com_device_context->PSSetShader(a_com_precompute_shaders[MULTIPLE_SCATTERING_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { 
-						delta_rayleigh_scattering_texture.com_rtv.Get()
-						/*delta_multiple_scattering_texture.com_rtv.Get()*/
-						, scattering_texture.com_rtv.Get() };
+						delta_rayleigh_scattering_texture.m_rtv
+						/*delta_multiple_scattering_texture.m_rtv*/
+						, scattering_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 					com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
 					com_device_context->DrawInstanced(4, SCATTERING_TEXTURE_DEPTH, 0, 0);
@@ -828,7 +817,7 @@ namespace atmosphere
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
 			com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
-			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.com_rtv.Get() };
+			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.m_rtv };
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			com_device_context->Draw(4, 0);
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
@@ -861,26 +850,6 @@ namespace atmosphere
 		create_shaders(renderer);
 		
 		precompute(renderer, false);
-		
-		//DirectX::SaveWICTextureToFile(
-		//	renderer.GetDevContext()
-		//	, transmittance_texture.com_tex.Get(), GUID_ContainerFormatPng
-		//	, L"transmittance.png");
-
-		//DirectX::SaveWICTextureToFile(
-		//	renderer.GetDevContext()
-		//	, irradiance_texture.com_tex.Get(), GUID_ContainerFormatPng
-		//	, L"irradiance.png");
-
-		//DirectX::SaveWICTextureToFile(
-		//	renderer::get_device_context().Get()
-		//	, scattering_texture.com_tex.Get(), GUID_ContainerFormatPng
-		//	, L"scaterring.png");
-
-		//DirectX::SaveWICTextureToFile(
-		//	renderer::get_device_context().Get()
-		//	, single_mie_scattering_texture.com_tex.Get(), GUID_ContainerFormatPng
-		//	, L"single_mie_scattering.png");
 
 		create_transmittance_shader(renderer);
 		precompute_transmittance(renderer);

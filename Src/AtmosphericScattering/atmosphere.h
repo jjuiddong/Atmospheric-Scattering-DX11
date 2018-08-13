@@ -94,13 +94,13 @@ namespace atmosphere
 	
 	Microsoft::WRL::ComPtr<ID3D11PixelShader> &get_demo_ps();
 
-	renderer::Texture2D &get_transmittance_texture();
+	graphic::cRenderTarget2d& get_transmittance_texture();
 
-	renderer::Texture3D &get_scattering_texture();
+	graphic::cRenderTarget3d &get_scattering_texture();
 
-	renderer::Texture3D &get_single_mie_scattering_texture();
+	graphic::cRenderTarget3d &get_single_mie_scattering_texture();
 
-	renderer::Texture2D &get_irradiance_texture();
+	graphic::cRenderTarget2d &get_irradiance_texture();
 
 	void compute_white_point(double *p_white_point_r, double *p_white_point_g, double *p_white_point_b);
 

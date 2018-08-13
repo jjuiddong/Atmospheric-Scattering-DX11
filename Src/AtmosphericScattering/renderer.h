@@ -2,20 +2,6 @@
 
 namespace renderer {
 
-	struct Texture2D
-	{
-		Microsoft::WRL::ComPtr<ID3D11Texture2D> com_tex = nullptr;
-		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> com_srv = nullptr;
-		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> com_rtv = nullptr;
-	};
-
-	struct Texture3D
-	{
-		Microsoft::WRL::ComPtr<ID3D11Texture3D> com_tex = nullptr;
-		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> com_srv = nullptr;
-		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> com_rtv = nullptr;
-	};
-
 	void init(graphic::cRenderer &renderer);
 
 	void update(graphic::cRenderer &renderer);
@@ -26,9 +12,6 @@ namespace renderer {
 
 	int resize(LPARAM lparam);
 
-	//Microsoft::WRL::ComPtr<ID3D11Device> &get_device();
-
-	//Microsoft::WRL::ComPtr<ID3D11DeviceContext> &get_device_context();
 
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> &get_sampler();
 
@@ -39,12 +22,6 @@ namespace renderer {
 	Microsoft::WRL::ComPtr<ID3D11BlendState> &get_blend_state_01();
 
 	Microsoft::WRL::ComPtr<ID3D11BlendState> &get_blend_state_0011();
-
-	void create_texture_2d(graphic::cRenderer &renderer
-		, uint32_t width, uint32_t height, D3D11_SUBRESOURCE_DATA *p_init_data, DXGI_FORMAT format, Texture2D* p_out_texture);
-	
-	void create_texture_3d(graphic::cRenderer &renderer
-		, uint32_t width, uint32_t height, uint32_t depth, D3D11_SUBRESOURCE_DATA *p_init_data, DXGI_FORMAT format, Texture3D* p_out_texture);
 	
 	void create_cb(graphic::cRenderer &renderer
 		, Microsoft::WRL::ComPtr<ID3D11Buffer>& com_buffer, const void *p_data, uint32_t size);
