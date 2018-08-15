@@ -23,21 +23,6 @@ namespace renderer {
 
 	Microsoft::WRL::ComPtr<ID3D11BlendState> &get_blend_state_0011();
 	
-	void create_cb(graphic::cRenderer &renderer
-		, Microsoft::WRL::ComPtr<ID3D11Buffer>& com_buffer, const void *p_data, uint32_t size);
-
-	void update_cb(graphic::cRenderer &renderer
-		, Microsoft::WRL::ComPtr<ID3D11Buffer>& com_buffer, const void *p_data, uint32_t data_size);
-
-	void compile_and_create_shader(graphic::cRenderer &renderer
-		, Microsoft::WRL::ComPtr<ID3D11VertexShader>& com_vs, const wchar_t* p_name);
-
-	void compile_and_create_shader(graphic::cRenderer &renderer
-		, Microsoft::WRL::ComPtr<ID3D11PixelShader>& com_ps, const wchar_t* p_name, const D3D_SHADER_MACRO *p_macros = NULL);
-
-	void compile_and_create_shader(graphic::cRenderer &renderer
-		, Microsoft::WRL::ComPtr<ID3D11GeometryShader>& com_gs, const wchar_t* p_name);
-
 	bool check_full_precision_rgb_support();
 
 } // namespace renderer

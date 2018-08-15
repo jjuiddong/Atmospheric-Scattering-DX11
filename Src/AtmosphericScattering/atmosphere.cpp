@@ -26,21 +26,10 @@
 * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 * THE POSSIBILITY OF SUCH DAMAGE.
 */
-//#include "common.h"
 #include "stdafx.h"
-
-#include <dxgi1_6.h>
-#include <d3dcompiler.h>
-#include <d3d11sdklayers.h>
-
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-
 #include "atmosphere.h"
 #include "gui.h" 
 #include "renderer.h"
-//#include "error.h"
 
 typedef double scalar;
 typedef double3 scalar3;
@@ -296,33 +285,11 @@ void ComputeSpectralRadianceToLuminanceFactors(const double *a_wavelengths
 	*k_b *= MAX_LUMINOUS_EFFICACY * dlambda;
 }
 
-#define TRANSMITTANCE_SHADER_INDEX			0
-#define DELTA_IRRADIANCE_SHADER_INDEX		1
-#define SINGLE_SCATTERING_SHADER_INDEX		2
-#define SCATTERING_DENSITY_SHADER_INDEX		3
-#define INDIRECT_IRRADIANCE_SHADER_INDEX	4
-#define MULTIPLE_SCATTERING_SHADER_INDEX	5
-
-D3D_SHADER_MACRO a_precompute_shader_macros[] = {
-	{ "TRANSMITTANCE",			_STRINGIZE(TRANSMITTANCE_SHADER_INDEX) },
-	{ "DELTA_IRRADIANCE",		_STRINGIZE(DELTA_IRRADIANCE_SHADER_INDEX) },
-	{ "SINGLE_SCATTERING",		_STRINGIZE(SINGLE_SCATTERING_SHADER_INDEX) },
-	{ "SCATTERING_DENSITY",		_STRINGIZE(SCATTERING_DENSITY_SHADER_INDEX) },
-	{ "INDIRECT_IRRADIANCE",	_STRINGIZE(INDIRECT_IRRADIANCE_SHADER_INDEX) },
-	{ "MULTIPLE_SCATTERING",	_STRINGIZE(MULTIPLE_SCATTERING_SHADER_INDEX) },
-	{ "PRECOMPUTE_SHADER_TYPE",	NULL },
-	{ NULL,						NULL }
-};
-
-constexpr UINT num_precompute_shader_type = count_of(a_precompute_shader_macros) - 2;
 
 namespace atmosphere
 {
-	ComPtr<ID3D11VertexShader> com_demo_vs = nullptr;
-	ComPtr<ID3D11PixelShader> com_demo_ps = nullptr;
-	ComPtr<ID3D11VertexShader> com_precompute_vs = nullptr;
-	ComPtr<ID3D11PixelShader> a_com_precompute_shaders[num_precompute_shader_type] = { nullptr };
-	ComPtr<ID3D11GeometryShader> com_precompute_gs = nullptr;
+	graphic::cShader11 demoShader;
+	graphic::cShader11 preComputeShader;
 
 	graphic::cRenderTarget2d transmittance_texture;
 	graphic::cRenderTarget2d irradiance_texture;
@@ -341,15 +308,14 @@ namespace atmosphere
 	double a_absorption_extinction_coeffs[num_lambda_slices];
 	double a_ground_albedo_coeffs[num_lambda_slices];
 
-	struct PrecomputeConstantBuffer{
-		struct {
-			XMFLOAT4X4 luminance_from_radiance;
-			int scattering_order;
-			int test;
-			float _pad[2];
-		} data;
-		ComPtr<ID3D11Buffer> com_cb = nullptr;
-	} precompute_cb = {};
+	struct PrecomputeConstantBuffer 
+	{
+		XMFLOAT4X4 luminance_from_radiance;
+		int scattering_order;
+		int test;
+		float _pad[2];
+	};
+	graphic::cConstantBuffer<PrecomputeConstantBuffer> cbPrecompute;
 
 	AtmosphereParameters atmosphere_parameters;
 	AtmosphereOptions atmosphere_options;
@@ -360,12 +326,8 @@ namespace atmosphere
 		return atmosphere_options;
 	}
 
-	ComPtr<ID3D11VertexShader> &get_demo_vs(){
-		return com_demo_vs;
-	}
-
-	ComPtr<ID3D11PixelShader> &get_demo_ps() {
-		return com_demo_ps;
+	graphic::cShader11 &get_demo_vs(){
+		return demoShader;
 	}
 
 	graphic::cRenderTarget2d& get_transmittance_texture(){
@@ -631,63 +593,61 @@ namespace atmosphere
 	}
 
 	void create_demo_pixel_shader(graphic::cRenderer &renderer) {
-		renderer::compile_and_create_shader(renderer, com_demo_ps, L"../media/shader/atmosphere_demo_ps.hlsl");
 	}
 
 	void create_transmittance_shader(graphic::cRenderer &renderer) {
-		a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Reset();
-		a_precompute_shader_macros[num_precompute_shader_type].Definition = a_precompute_shader_macros[TRANSMITTANCE_SHADER_INDEX].Name;
-		renderer::compile_and_create_shader(renderer, a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX]
-			, L"../media/shader/atmosphere_precompute_ps.hlsl", a_precompute_shader_macros);
 	}
 
 	void create_precomputation_shaders(graphic::cRenderer &renderer) 
 	{
-		for(UINT shader_index = 0; shader_index < num_precompute_shader_type; ++shader_index) {
-			a_com_precompute_shaders[shader_index].Reset();
-			a_precompute_shader_macros[num_precompute_shader_type].Definition = a_precompute_shader_macros[shader_index].Name;
-			renderer::compile_and_create_shader(renderer, a_com_precompute_shaders[shader_index]
-				, L"../media/shader/atmosphere_precompute_ps.hlsl", a_precompute_shader_macros);
-		}
+
 	}
 
 	void create_shaders(graphic::cRenderer &renderer) {
-		renderer::compile_and_create_shader(renderer, com_demo_vs, L"../media/shader/atmosphere_demo_vs.hlsl");		
-		renderer::compile_and_create_shader(renderer, com_precompute_vs, L"../media/shader/atmosphere_precompute_vs.hlsl");
-		renderer::compile_and_create_shader(renderer, com_precompute_gs, L"../media/shader/atmosphere_precompute_gs.hlsl");
-		create_demo_pixel_shader(renderer);
-		create_precomputation_shaders(renderer);
+		demoShader.Create(renderer, "../media/shader11/atmosphere_demo.fxo", "Unlit", 0);
+		preComputeShader.Create(renderer, "../media/shader11/atmosphere_precompute.fxo", "Unlit", 0);
 	}
 
 	void precompute(cRenderer &renderer, bool need_blend) {
 		ID3D11DeviceContext *com_device_context = renderer.GetDevContext();
 
+		preComputeShader.SetTechnique("TechTransmittance");
+		preComputeShader.Begin();
+		preComputeShader.BeginPass(renderer, 0);
+
 		com_device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		com_device_context->VSSetShader(com_precompute_vs.Get(), 0, 0);
 		ID3D11SamplerState *a_samplers[] = { renderer::get_sampler().Get() };
 		com_device_context->PSSetSamplers(0, count_of(a_samplers), a_samplers);
 		com_device_context->RSSetState(renderer::get_rasterizer_state().Get());
 		com_device_context->OMSetDepthStencilState(renderer::get_depth_stencil_state().Get(), 0);
-		ID3D11Buffer *a_cbs[] = { precompute_cb.com_cb.Get() };
-		com_device_context->PSSetConstantBuffers(0, count_of(a_cbs), a_cbs);
+		cbPrecompute.Update(renderer, 0);
 
 		{	// Precompute Transmittance
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
-			com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
+			//com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.m_rtv};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			com_device_context->Draw(4, 0);
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_null_rtvs, nullptr);
+
+			const HRESULT result = DirectX::SaveWICTextureToFile(renderer.GetDevContext()
+				, transmittance_texture.m_texture, GUID_ContainerFormatPng, L"Transmittance.png");
 		}
 
 		{	// Precompute Direct Irradiance
+			preComputeShader.SetTechnique("TechDeltaIrradiance");
+			preComputeShader.Begin();
+			preComputeShader.BeginPass(renderer, 0);
+
+			cbPrecompute.Update(renderer, 0);
+
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
 			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.m_srv };
 			com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-			com_device_context->PSSetShader(a_com_precompute_shaders[DELTA_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
+			//com_device_context->PSSetShader(a_com_precompute_shaders[DELTA_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = { delta_irradiance_texture.m_rtv, irradiance_texture.m_rtv };
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			if(need_blend) com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
@@ -695,15 +655,24 @@ namespace atmosphere
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_null_rtvs, nullptr);
 			if(need_blend) com_device_context->OMSetBlendState(nullptr, NULL, 0xffffffff);
+
+			DirectX::SaveWICTextureToFile(renderer.GetDevContext()
+				, delta_irradiance_texture.m_texture, GUID_ContainerFormatPng, L"delta_irradiance.png");
+			DirectX::SaveWICTextureToFile(renderer.GetDevContext()
+				, irradiance_texture.m_texture, GUID_ContainerFormatPng, L"irradiance.png");
 		}
 
 		{	// Precompute Direct Rayleigh and Mie single scattering
+			preComputeShader.SetTechnique("TechSingleScattering");
+			preComputeShader.Begin();
+			preComputeShader.BeginPass(renderer, 0);
+
+			cbPrecompute.Update(renderer, 0);
+
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
-			com_device_context->GSSetShader(com_precompute_gs.Get(), 0, 0);
 			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.m_srv };
 			com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-			com_device_context->PSSetShader(a_com_precompute_shaders[SINGLE_SCATTERING_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = {
 				delta_rayleigh_scattering_texture.m_rtv
 				, delta_mie_scattering_texture.m_rtv
@@ -713,6 +682,7 @@ namespace atmosphere
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			if(need_blend) com_device_context->OMSetBlendState(renderer::get_blend_state_0011().Get(), NULL, 0xffffffff);
 			com_device_context->DrawInstanced(4, SCATTERING_TEXTURE_DEPTH, 0, 0);
+			
 			ID3D11ShaderResourceView *const a_null_srvs[count_of(a_srvs)] = {};
 			com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_null_srvs);
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
@@ -720,9 +690,19 @@ namespace atmosphere
 			if(need_blend) com_device_context->OMSetBlendState(nullptr, NULL, 0xffffffff);
 		}
 
+		if (1)
 		{	// Accumulate Multiple Scattering
+			
 			for(uint32_t scattering_order = 2; scattering_order <= 4; ++scattering_order) {
-				{	// Scattering Density
+				{	
+					// Scattering Density
+					preComputeShader.SetTechnique("TechScatteringDensity");
+					preComputeShader.Begin();
+					preComputeShader.BeginPass(renderer, 0);
+					
+					cbPrecompute.m_v->scattering_order = scattering_order;
+					cbPrecompute.Update(renderer, 0);
+
 					D3D11_VIEWPORT viewport = { 0.0, 0.0, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, 0.0, 1.0 };
 					com_device_context->RSSetViewports(1, &viewport);
 					ID3D11ShaderResourceView *a_srvs[] = {
@@ -733,12 +713,10 @@ namespace atmosphere
 						, delta_irradiance_texture.m_srv
 					};
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-					com_device_context->PSSetShader(a_com_precompute_shaders[SCATTERING_DENSITY_SHADER_INDEX].Get(), 0, 0);
+					//com_device_context->PSSetShader(a_com_precompute_shaders[SCATTERING_DENSITY_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { delta_scattering_density_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 
-					precompute_cb.data.scattering_order = scattering_order;
-					renderer::update_cb(renderer, precompute_cb.com_cb, &precompute_cb.data, sizeof(precompute_cb.data));
 					com_device_context->DrawInstanced(4, SCATTERING_TEXTURE_DEPTH, 0, 0);
 
 					ID3D11ShaderResourceView *const a_null_srvs[count_of(a_srvs)] = {};
@@ -748,17 +726,22 @@ namespace atmosphere
 				}
 
 				{	// Indirect Irradiance
-					precompute_cb.data.scattering_order = scattering_order - 1;
-					renderer::update_cb(renderer, precompute_cb.com_cb, &precompute_cb.data, sizeof(precompute_cb.data));
+					preComputeShader.SetTechnique("TechIndirectIrradinace");
+					preComputeShader.Begin();
+					preComputeShader.BeginPass(renderer, 0);
+					
+					cbPrecompute.m_v->scattering_order = scattering_order - 1;
+					cbPrecompute.Update(renderer, 0);
 
 					D3D11_VIEWPORT viewport = { 0.0, 0.0, IRRADIANCE_TEXTURE_WIDTH, IRRADIANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 					com_device_context->RSSetViewports(1, &viewport);
 					ID3D11ShaderResourceView *a_srvs[] = {
-						delta_rayleigh_scattering_texture.m_srv
+						transmittance_texture.m_srv
+						, delta_rayleigh_scattering_texture.m_srv
 						, delta_mie_scattering_texture.m_srv
 						, delta_rayleigh_scattering_texture.m_srv };
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-					com_device_context->PSSetShader(a_com_precompute_shaders[INDIRECT_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
+					//com_device_context->PSSetShader(a_com_precompute_shaders[INDIRECT_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { 
 						delta_irradiance_texture.m_rtv
 						, irradiance_texture.m_rtv };
@@ -774,13 +757,19 @@ namespace atmosphere
 				}
 
 				{	// Multiple Scattering
+					preComputeShader.SetTechnique("TechMultipleScattering");
+					preComputeShader.Begin();
+					preComputeShader.BeginPass(renderer, 0);
+					
+					cbPrecompute.Update(renderer, 0);
+
 					D3D11_VIEWPORT viewport = { 0.0, 0.0, SCATTERING_TEXTURE_WIDTH, SCATTERING_TEXTURE_HEIGHT, 0.0, 1.0 };
 					com_device_context->RSSetViewports(1, &viewport);
 					ID3D11ShaderResourceView *a_srvs[] = { 
 						transmittance_texture.m_srv
 						, delta_scattering_density_texture.m_srv };
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-					com_device_context->PSSetShader(a_com_precompute_shaders[MULTIPLE_SCATTERING_SHADER_INDEX].Get(), 0, 0);
+					//com_device_context->PSSetShader(a_com_precompute_shaders[MULTIPLE_SCATTERING_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { 
 						delta_rayleigh_scattering_texture.m_rtv
 						/*delta_multiple_scattering_texture.m_rtv*/
@@ -805,21 +794,20 @@ namespace atmosphere
 	{
 		ID3D11DeviceContext *com_device_context = renderer.GetDevContext();
 		com_device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		com_device_context->VSSetShader(com_precompute_vs.Get(), 0, 0);
+		//com_device_context->VSSetShader(com_precompute_vs.Get(), 0, 0);
 		ID3D11SamplerState *a_samplers[] = { renderer::get_sampler().Get() };
 		com_device_context->PSSetSamplers(0, count_of(a_samplers), a_samplers);
 		com_device_context->RSSetState(renderer::get_rasterizer_state().Get());
 		com_device_context->OMSetDepthStencilState(renderer::get_depth_stencil_state().Get(), 0);
-		ID3D11Buffer *a_cbs[] = { precompute_cb.com_cb.Get() };
-		com_device_context->PSSetConstantBuffers(0, count_of(a_cbs), a_cbs);
+		cbPrecompute.Update(renderer, 0);
 
 		{	// Precompute Transmittance
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
-			com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
+			//com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.m_rtv };
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
-			com_device_context->Draw(4, 0);
+			//com_device_context->Draw(4, 0);
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_null_rtvs, nullptr);
 		}
@@ -838,9 +826,10 @@ namespace atmosphere
 		gui_data.use_constant_solar_spectrum = atmosphere_options.use_constant_solar_spectrum;
 		gui_data.use_half_precision = atmosphere_options.use_half_precision;
 
+		cbPrecompute.Create(renderer);
+		ZeroMemory(cbPrecompute.m_v, sizeof(PrecomputeConstantBuffer));
 		XMMATRIX identity = XMMatrixIdentity();
-		XMStoreFloat4x4(&precompute_cb.data.luminance_from_radiance, identity);
-		renderer::create_cb(renderer, precompute_cb.com_cb, &precompute_cb.data, sizeof(precompute_cb.data));
+		XMStoreFloat4x4(&cbPrecompute.m_v->luminance_from_radiance, identity);
 
 		double3 lambdas = { kLambdaR, kLambdaG, kLambdaB };
 		create_model(lambdas);
@@ -886,8 +875,8 @@ namespace atmosphere
 				create_model(lambdas);
 				create_demo_pixel_shader(renderer);
 				create_precomputation_shaders(renderer);
-				XMStoreFloat4x4(&precompute_cb.data.luminance_from_radiance, XMMatrixIdentity());
-				renderer::update_cb(renderer, precompute_cb.com_cb, &precompute_cb.data, sizeof(precompute_cb.data));
+				XMStoreFloat4x4(&cbPrecompute.m_v->luminance_from_radiance, XMMatrixIdentity());
+								
 				precompute(renderer, false);
 			}
 			else {			
@@ -901,16 +890,16 @@ namespace atmosphere
 					};
 					create_model(lambdas);
 					create_precomputation_shaders(renderer);
-					precompute_cb.data.luminance_from_radiance._11 = compute_luminance_from_radiance_coeff(lambdas.x, dlambda, 0);
-					precompute_cb.data.luminance_from_radiance._12 = compute_luminance_from_radiance_coeff(lambdas.y, dlambda, 0);
-					precompute_cb.data.luminance_from_radiance._13 = compute_luminance_from_radiance_coeff(lambdas.z, dlambda, 0);
-					precompute_cb.data.luminance_from_radiance._21 = compute_luminance_from_radiance_coeff(lambdas.x, dlambda, 1);
-					precompute_cb.data.luminance_from_radiance._22 = compute_luminance_from_radiance_coeff(lambdas.y, dlambda, 1);
-					precompute_cb.data.luminance_from_radiance._23 = compute_luminance_from_radiance_coeff(lambdas.z, dlambda, 1);
-					precompute_cb.data.luminance_from_radiance._31 = compute_luminance_from_radiance_coeff(lambdas.x, dlambda, 2);
-					precompute_cb.data.luminance_from_radiance._32 = compute_luminance_from_radiance_coeff(lambdas.y, dlambda, 2);
-					precompute_cb.data.luminance_from_radiance._33 = compute_luminance_from_radiance_coeff(lambdas.z, dlambda, 2);
-					renderer::update_cb(renderer, precompute_cb.com_cb, &precompute_cb.data, sizeof(precompute_cb.data));
+					cbPrecompute.m_v->luminance_from_radiance._11 = compute_luminance_from_radiance_coeff(lambdas.x, dlambda, 0);
+					cbPrecompute.m_v->luminance_from_radiance._12 = compute_luminance_from_radiance_coeff(lambdas.y, dlambda, 0);
+					cbPrecompute.m_v->luminance_from_radiance._13 = compute_luminance_from_radiance_coeff(lambdas.z, dlambda, 0);
+					cbPrecompute.m_v->luminance_from_radiance._21 = compute_luminance_from_radiance_coeff(lambdas.x, dlambda, 1);
+					cbPrecompute.m_v->luminance_from_radiance._22 = compute_luminance_from_radiance_coeff(lambdas.y, dlambda, 1);
+					cbPrecompute.m_v->luminance_from_radiance._23 = compute_luminance_from_radiance_coeff(lambdas.z, dlambda, 1);
+					cbPrecompute.m_v->luminance_from_radiance._31 = compute_luminance_from_radiance_coeff(lambdas.x, dlambda, 2);
+					cbPrecompute.m_v->luminance_from_radiance._32 = compute_luminance_from_radiance_coeff(lambdas.y, dlambda, 2);
+					cbPrecompute.m_v->luminance_from_radiance._33 = compute_luminance_from_radiance_coeff(lambdas.z, dlambda, 2);
+
 					precompute(renderer, i>0);
 				}
 				double3 lambdas = { kLambdaR , kLambdaG, kLambdaB };

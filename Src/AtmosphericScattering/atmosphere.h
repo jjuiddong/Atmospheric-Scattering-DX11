@@ -90,9 +90,7 @@ namespace atmosphere
 
 	AtmosphereOptions &get_options();
 
-	Microsoft::WRL::ComPtr<ID3D11VertexShader> &get_demo_vs();
-	
-	Microsoft::WRL::ComPtr<ID3D11PixelShader> &get_demo_ps();
+	graphic::cShader11 &get_demo_vs();
 
 	graphic::cRenderTarget2d& get_transmittance_texture();
 

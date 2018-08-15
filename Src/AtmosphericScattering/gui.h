@@ -6,7 +6,8 @@ namespace atmosphere { enum Luminance; }
 
 namespace gui {
 	
-	typedef struct GuiData {
+	typedef struct GuiData 
+	{
 		float view_zenith_angle_in_degrees = 84.2248f;
 		float view_azimuth_angle_in_degrees = -5.729578f;
 		float view_distance = 9000.0f;
@@ -24,14 +25,8 @@ namespace gui {
 		bool debug_dump_textures = false;
 	} GuiData;
 
-	void init();
-	
 	void update();
 	
-	void render_frame();
-	
-	void clean_up();
-
 	GuiData& get_data();
 
 } // namespace gui

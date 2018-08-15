@@ -23,221 +23,43 @@ namespace renderer {
 	static int last_predefined_view_index = 0;
 	static float fov_y_angle_deg = 50.f;
 	static float near_plane = 1.0;
-	static UINT shader_compile_flags;
 	
-	struct AtmosphereConstantBuffer {
-		struct {
-			XMFLOAT4X4 view_from_clip;
-			XMFLOAT4X4 world_from_view;
-			XMFLOAT3 view_pos_ws;
-			float sun_disk_size_x;
-			XMFLOAT3 earth_center_pos_ws;
-			float sun_disk_size_y;
-			XMFLOAT3 sun_direction_ws;
-			float    exposure;
-			XMFLOAT3 white_point;
-			int layer;
-			XMFLOAT4X3 luminance_from_radiance;
-			int scattering_order;
-			float _pad[3];
-		} data;
-		ComPtr<ID3D11Buffer> com_cb = nullptr;
-	} atmosphere_cb = {};
+	struct AtmosphereConstantBuffer 
+	{
+		XMFLOAT4X4 view_from_clip;
+		XMFLOAT4X4 world_from_view;
+		XMFLOAT3 view_pos_ws;
+		float sun_disk_size_x;
+		XMFLOAT3 earth_center_pos_ws;
+		float sun_disk_size_y;
+		XMFLOAT3 sun_direction_ws;
+		float    exposure;
+		XMFLOAT3 white_point;
+		int layer;
+		XMFLOAT4X3 luminance_from_radiance;
+		int scattering_order;
+		float _pad[3];
+	};
 
-	void compile_and_create_shader(graphic::cRenderer &renderer
-		, ComPtr<ID3D11VertexShader>& com_vs, const wchar_t* p_name) {
-		HRESULT h_result;
-		ComPtr<ID3DBlob> com_shader_blob = nullptr;
-		ComPtr<ID3DBlob> com_error_blob = nullptr;
+	cConstantBuffer<AtmosphereConstantBuffer> cbAtmosphere;
 
-		com_vs.Reset();
-		h_result = D3DCompileFromFile(
-			p_name,
-			NULL,
-			D3D_COMPILE_STANDARD_FILE_INCLUDE,
-			"vs_main",
-			"vs_5_0",
-			shader_compile_flags,
-			0,
-			com_shader_blob.GetAddressOf(),
-			com_error_blob.GetAddressOf()
-		);
-		//if(h_result != S_OK) error_win32("D3DCompileFromFile", com_error_blob);
-
-		h_result = renderer.GetDevice()->CreateVertexShader(com_shader_blob->GetBufferPointer()
-			, com_shader_blob->GetBufferSize(), NULL, com_vs.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateVertexShader", (DWORD)h_result);
-	}
-
-	void compile_and_create_shader(graphic::cRenderer &renderer
-		, ComPtr<ID3D11PixelShader>& com_ps, const wchar_t* p_name, const D3D_SHADER_MACRO *p_macros){
-		HRESULT h_result;
-		ComPtr<ID3DBlob> com_shader_blob = nullptr;
-		ComPtr<ID3DBlob> com_error_blob = nullptr;
-
-		com_ps.Reset();
-		h_result = D3DCompileFromFile(
-			p_name,
-			p_macros,
-			D3D_COMPILE_STANDARD_FILE_INCLUDE,
-			"ps_main",
-			"ps_5_0",
-			shader_compile_flags,
-			0,
-			com_shader_blob.GetAddressOf(),
-			com_error_blob.GetAddressOf()
-		);
-		//if(h_result != S_OK) error_win32("D3DCompileFromFile", com_error_blob);
-
-		h_result = renderer.GetDevice()->CreatePixelShader(com_shader_blob->GetBufferPointer(), com_shader_blob->GetBufferSize(), NULL, com_ps.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreatePixelShader", (DWORD)h_result);
-	}
-
-	void compile_and_create_shader(graphic::cRenderer &renderer
-		, ComPtr<ID3D11GeometryShader>& com_gs, const wchar_t* p_name) {
-		HRESULT h_result;
-		ComPtr<ID3DBlob> com_shader_blob = nullptr;
-		ComPtr<ID3DBlob> com_error_blob = nullptr;
-
-		com_gs.Reset();
-		h_result = D3DCompileFromFile(
-			p_name,
-			NULL,
-			D3D_COMPILE_STANDARD_FILE_INCLUDE,
-			"gs_main",
-			"gs_5_0",
-			shader_compile_flags,
-			0,
-			com_shader_blob.GetAddressOf(),
-			com_error_blob.GetAddressOf()
-		);
-		//if(h_result != S_OK) error_win32("D3DCompileFromFile", com_error_blob);
-
-		h_result = renderer.GetDevice()->CreateGeometryShader(com_shader_blob->GetBufferPointer(), com_shader_blob->GetBufferSize(), NULL, com_gs.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateGeometryShader", (DWORD)h_result);
-	}
 
 	bool check_full_precision_rgb_support() {
 		return is_full_precision_rgb_supported;
 	}
 
-	void create_cb(graphic::cRenderer &renderer
-		, ComPtr<ID3D11Buffer>& com_buffer, const void *p_data, uint32_t size) {
-		D3D11_BUFFER_DESC cb_desc = {};
-		cb_desc.ByteWidth = size;
-		cb_desc.Usage = D3D11_USAGE_DYNAMIC;
-		cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		cb_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
-		D3D11_SUBRESOURCE_DATA cb_init_data = {};
-		cb_init_data.pSysMem = p_data;
-		HRESULT h_result = renderer.GetDevice()->CreateBuffer(&cb_desc, &cb_init_data, com_buffer.GetAddressOf());
-		//if(h_result != S_OK) error_win32("CreateBuffer", (DWORD)h_result);
-	}
-	
-	void update_cb(graphic::cRenderer &renderer
-		, ComPtr<ID3D11Buffer>& com_buffer, const void *p_data, uint32_t data_size) {
-		D3D11_MAPPED_SUBRESOURCE mapped_resource;
-		HRESULT h_result = renderer.GetDevContext()->Map(com_buffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource);
-		//if(h_result != S_OK) error_win32("Map", (DWORD)h_result);
-		memcpy(mapped_resource.pData, p_data, data_size);
-		renderer.GetDevContext()->Unmap(com_buffer.Get(), 0);
-	}
+	void init(graphic::cRenderer &renderer) 
+	{
 
-	void init(graphic::cRenderer &renderer) {
-		//window::get_client_size(backbuffer_width, backbuffer_height);
-#ifdef _DEBUG
-		shader_compile_flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_SKIP_VALIDATION;
-#else
-		// NOTE(cerlet): For some reason shader compilation is unusually slow! Trying to skip some work!
-		shader_compile_flags = D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_SKIP_VALIDATION;
-#endif
-		
-//		{
-//			ComPtr<IDXGIFactory5> com_dxgi_factory = nullptr;
-//			ComPtr<IDXGIAdapter1> a_com_dxgi_adapters[MAX_NUM_DXGI_ADAPTERS] = { nullptr };
-//#ifdef  _DEBUG
-//			UINT flags = DXGI_CREATE_FACTORY_DEBUG;
-//#else
-//			UINT flags = 0;
-//#endif // _DEBUG
-//			HRESULT h_result = CreateDXGIFactory2(flags, IID_PPV_ARGS(&com_dxgi_factory));
-//			//if(FAILED(h_result)) { error_win32("CreateDXGIFactory2", (DWORD)h_result); return; };
-//
-//			UINT adapter_index = 0;
-//			for(;;) {
-//				h_result = com_dxgi_factory->EnumAdapters1(adapter_index, a_com_dxgi_adapters[adapter_index].GetAddressOf());
-//				if(FAILED(h_result)) {
-//					if((h_result == DXGI_ERROR_NOT_FOUND && adapter_index == 0) || h_result != DXGI_ERROR_NOT_FOUND) {
-//						//error_win32("EnumAdapters1", (DWORD)h_result);
-//						return;
-//					}
-//					else break;
-//				}
-//				adapter_index++;
-//			}
-//
-//			UINT device_creation_flags = D3D11_CREATE_DEVICE_SINGLETHREADED | D3D11_CREATE_DEVICE_DISABLE_GPU_TIMEOUT;
-//#ifdef  _DEBUG
-//			device_creation_flags |= D3D11_CREATE_DEVICE_DEBUG;
-//#endif // _DEBUG
-//			const D3D_FEATURE_LEVEL a_d3d_feauture_levels[] = { D3D_FEATURE_LEVEL_11_1 };
-//
-//			//h_result = D3D11CreateDevice(
-//			//	a_com_dxgi_adapters[0].Get(),
-//			//	D3D_DRIVER_TYPE::D3D_DRIVER_TYPE_UNKNOWN,
-//			//	NULL,
-//			//	device_creation_flags,
-//			//	a_d3d_feauture_levels,
-//			//	count_of(a_d3d_feauture_levels),
-//			//	D3D11_SDK_VERSION,
-//			//	com_device.GetAddressOf(),
-//			//	NULL,
-//			//	com_device_context.GetAddressOf()
-//			//);
-//			//TEMP!
-//			for(uint32_t i = 0; i < adapter_index; ++i) {
-//				//DXGI_ADAPTER_DESC desc = {};
-//				//a_com_dxgi_adapters[i]->GetDesc(&desc);
-//				//OutputDebugStringW(desc.Description);
-//				//OutputDebugString("\n");
-//			}
-//
-//			//if(h_result != S_OK) { error_win32("D3D11CreateDevice", (DWORD)h_result); return; };
-//
-//			UINT format_support_flags = 0;
-//			DXGI_FORMAT full_precision_format = DXGI_FORMAT_R32G32B32_FLOAT;
-//			//renderer.GetDevice()->CheckFormatSupport(full_precision_format, &format_support_flags);
-//			is_full_precision_rgb_supported = ((format_support_flags & D3D11_FORMAT_SUPPORT_RENDER_TARGET) != 0);
-//
-//			DXGI_SWAP_CHAIN_DESC1 swap_chain_desc = { 0 };
-//			swap_chain_desc.Width = backbuffer_width;
-//			swap_chain_desc.Height = backbuffer_height;
-//			swap_chain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-//			swap_chain_desc.Stereo = false;
-//			swap_chain_desc.SampleDesc.Count = 1;
-//			swap_chain_desc.SampleDesc.Quality = 0;
-//			swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-//			swap_chain_desc.BufferCount = 2;
-//			swap_chain_desc.Scaling = DXGI_SCALING_STRETCH;
-//			swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-//			swap_chain_desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-//			swap_chain_desc.Flags = 0;
-//
-//			//h_result = com_dxgi_factory->CreateSwapChainForHwnd(com_device.Get(), window::get_handle(), &swap_chain_desc, NULL, NULL, com_swap_chain.GetAddressOf());
-//			//if(h_result != S_OK) { error_win32("CreateSwapChainForHwnd", (DWORD)h_result); return; };
-//
-//			//ComPtr<ID3D11Texture2D> com_backbuffer_tex = nullptr;
-//			//h_result = com_swap_chain->GetBuffer(0, IID_PPV_ARGS(com_backbuffer_tex.GetAddressOf()));
-//			//if(h_result != S_OK) { error_win32("GetBuffer", (DWORD)h_result); return; };
-//
-//			//h_result = renderer.GetDevice()->CreateRenderTargetView(com_backbuffer_tex.Get(), NULL, com_backbuffer_rtv.GetAddressOf());
-//			//if(h_result != S_OK) { error_win32("CreateRenderTargetView", (DWORD)h_result); return; };
-//			//D3D_SET_DEBUG_NAME(com_backbuffer_rtv);
-//		}
+		UINT format_support_flags = 0;
+		DXGI_FORMAT full_precision_format = DXGI_FORMAT_R32G32B32_FLOAT;
+		renderer.GetDevice()->CheckFormatSupport(full_precision_format, &format_support_flags);
+		is_full_precision_rgb_supported = ((format_support_flags & D3D11_FORMAT_SUPPORT_RENDER_TARGET) != 0);
+
 
 		{
-			create_cb(renderer, atmosphere_cb.com_cb, &atmosphere_cb.data, sizeof(atmosphere_cb.data));
+			cbAtmosphere.Create(renderer);
 
 			{
 				D3D11_RASTERIZER_DESC rasterizer_desc = {};
@@ -338,7 +160,6 @@ namespace renderer {
 
 		{
 			float fov_y_angle_rad = XMConvertToRadians(fov_y_angle_deg);
-			//float aspect_ratio = (float)backbuffer_width / backbuffer_height;
 			float aspect_ratio = renderer.m_viewPort.m_vp.Width / renderer.m_viewPort.m_vp.Height;
 			float scale_y = (float)(1.0 / tan(fov_y_angle_rad / 2.0));
 			float scale_x = scale_y / aspect_ratio;
@@ -350,7 +171,7 @@ namespace renderer {
 			};
 
 			XMMATRIX view_from_clip = XMMatrixInverse(nullptr, XMLoadFloat4x4(&clip_from_view));
-			XMStoreFloat4x4(&atmosphere_cb.data.view_from_clip, view_from_clip);
+			XMStoreFloat4x4(&cbAtmosphere.m_v->view_from_clip, view_from_clip);
 
 			float cos_theta = (float)cos(XMConvertToRadians(gui_data.view_zenith_angle_in_degrees));
 			float sin_theta = (float)sin(XMConvertToRadians(gui_data.view_zenith_angle_in_degrees));
@@ -366,15 +187,16 @@ namespace renderer {
 				view_x_ws.z, view_y_ws.z, view_z_ws.z, -view_z_ws.z * gui_data.view_distance / 1000.f,
 				0.0, 0.0, 0.0, 1.0
 			};
-			atmosphere_cb.data.world_from_view = world_from_view;
+			cbAtmosphere.m_v->world_from_view = world_from_view;
 
-			atmosphere_cb.data.view_pos_ws = { world_from_view(0,3),world_from_view(1,3),world_from_view(2,3) };
-			atmosphere_cb.data.earth_center_pos_ws = { 0.f,0.f, -6360.0 };
+			cbAtmosphere.m_v->view_pos_ws = { world_from_view(0,3),world_from_view(1,3),world_from_view(2,3) };
+			cbAtmosphere.m_v->earth_center_pos_ws = { 0.f,0.f, -6360.0 };
+
 			cos_theta = (float)cos(XMConvertToRadians(gui_data.sun_zenith_angle_in_degrees));
 			sin_theta = (float)sin(XMConvertToRadians(gui_data.sun_zenith_angle_in_degrees));
 			cos_phi = (float)cos(XMConvertToRadians(gui_data.sun_azimuth_angle_in_degrees));
 			sin_phi = (float)sin(XMConvertToRadians(gui_data.sun_azimuth_angle_in_degrees));
-			atmosphere_cb.data.sun_direction_ws = {
+			cbAtmosphere.m_v->sun_direction_ws = {
 				cos_phi * sin_theta,
 				sin_phi * sin_theta,
 				cos_theta
@@ -387,13 +209,13 @@ namespace renderer {
 			if(gui_data.do_white_balance) {
 				atmosphere::compute_white_point(&white_point_r, &white_point_g, &white_point_b);
 			}
-			atmosphere_cb.data.white_point = { (float)white_point_r, (float)white_point_g , (float)white_point_b };
+			cbAtmosphere.m_v->white_point = { (float)white_point_r, (float)white_point_g , (float)white_point_b };
 
 			const double sun_angular_radius_rad = 0.00935 / 2.0;
-			atmosphere_cb.data.sun_disk_size_x = (float)tan(sun_angular_radius_rad);
-			atmosphere_cb.data.sun_disk_size_y = (float)cos(sun_angular_radius_rad);
-			atmosphere_cb.data.exposure = gui_data.exposure;
-			update_cb(renderer, atmosphere_cb.com_cb, &atmosphere_cb.data, sizeof(atmosphere_cb.data));
+			cbAtmosphere.m_v->sun_disk_size_x = (float)tan(sun_angular_radius_rad);
+			cbAtmosphere.m_v->sun_disk_size_y = (float)cos(sun_angular_radius_rad);
+			cbAtmosphere.m_v->exposure = gui_data.exposure;
+			cbAtmosphere.Update(renderer, 0);
 		}
 
 		//if(gui_data.debug_dump_textures) {
@@ -449,19 +271,20 @@ namespace renderer {
 	{
 		ID3D11DeviceContext *com_device_context = renderer.GetDevContext();
 
-		float clear_color[4] = { 0.0,1.0,0.0,0.0 };
+		//float clear_color[4] = { 0.0,1.0,0.0,0.0 };
 		//com_device_context->ClearRenderTargetView(com_backbuffer_rtv.Get(), clear_color);
-		com_device_context->ClearRenderTargetView(renderer.m_renderTargetView, clear_color);
+		//com_device_context->ClearRenderTargetView(renderer.m_renderTargetView, clear_color);
+
+		atmosphere::get_demo_vs().Begin();
+		atmosphere::get_demo_vs().BeginPass(renderer, 0);
+
+		cbAtmosphere.Update(renderer, 0);
 
 		com_device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-		com_device_context->VSSetConstantBuffers(0, 1, atmosphere_cb.com_cb.GetAddressOf());
-		com_device_context->VSSetShader(atmosphere::get_demo_vs().Get(), 0, 0);
 
 		renderer.m_viewPort.Bind(renderer);
 		com_device_context->RSSetState(com_rasterizer_state.Get());
 
-		com_device_context->PSSetConstantBuffers(0, 1, atmosphere_cb.com_cb.GetAddressOf());
 		ID3D11SamplerState *a_ps_samplers[] = { com_sampler_state.Get() };
 		com_device_context->PSSetSamplers(0, count_of(a_ps_samplers), a_ps_samplers);
 		ID3D11ShaderResourceView *a_srvs[] = { 
@@ -471,11 +294,10 @@ namespace renderer {
 			, atmosphere::get_irradiance_texture().m_srv 
 		};
 		com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-		com_device_context->PSSetShader(atmosphere::get_demo_ps().Get(), 0, 0);
+		//com_device_context->PSSetShader(atmosphere::get_demo_ps().Get(), 0, 0);
 
 		com_device_context->OMSetDepthStencilState(com_depth_stencil_state.Get(), 0);
-		//com_device_context->OMSetRenderTargets(1, com_backbuffer_rtv.GetAddressOf(), nullptr);
-		com_device_context->OMSetRenderTargets(1, &renderer.m_renderTargetView, nullptr);
+		//com_device_context->OMSetRenderTargets(1, &renderer.m_renderTargetView, nullptr);
 
 		com_device_context->Draw(4, 0);
 

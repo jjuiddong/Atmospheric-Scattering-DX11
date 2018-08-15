@@ -1,15 +1,9 @@
 
 #include "stdafx.h"
-
-//#include "common.h"
-
-//#include "external/imgui.h"
-//#include "external/imgui_impl_dx11.h"
-
 #include "gui.h"
-//#include "window.h"
 #include "renderer.h"
 #include "atmosphere.h"
+
 
 namespace gui  {
 
@@ -17,12 +11,9 @@ namespace gui  {
 	static ImVec2 last_mouse_pos;
 	static const float mouse_pos_scale = 1.0f / 500.0f;
 
-	void init() {
-		//ImGui::CreateContext();
-		//ImGui_ImplDX11_Init((void*)window::get_handle(), renderer::get_device().Get(), renderer::get_device_context().Get());
-	}
 
-	void update() {
+	void update() 
+	{
 		//ImGui_ImplDX11_NewFrame();
 		ImVec2 mouse_pos = ImGui::GetMousePos();
 		ImGuiIO& io = ImGui::GetIO();
@@ -86,16 +77,6 @@ namespace gui  {
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 			ImGui::End();			
 		}	
-	}
-
-	void render_frame() {
-		//ImGui::Render();
-		//ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-	}
-
-	void clean_up() {
-		//ImGui_ImplDX11_Shutdown();
-		//ImGui::DestroyContext();
 	}
 
 	GuiData& get_data() {
