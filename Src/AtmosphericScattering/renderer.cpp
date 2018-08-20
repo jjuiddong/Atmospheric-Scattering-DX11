@@ -7,14 +7,9 @@
 
 using namespace graphic;
 
-#define MAX_NUM_DXGI_ADAPTERS 8
-#define _D3D_SET_DEBUG_NAME(A,B)	((A)->SetPrivateData(WKPDID_D3DDebugObjectName, sizeof((B)), (B)))
-#define D3D_SET_DEBUG_NAME(A)		_D3D_SET_DEBUG_NAME(A,_STRINGIZE(A))
 
 namespace renderer {
 
-	ComPtr<ID3D11RasterizerState> com_rasterizer_state = nullptr;
-	ComPtr<ID3D11SamplerState> com_sampler_state = nullptr;
 	ComPtr<ID3D11DepthStencilState> com_depth_stencil_state = nullptr;
 	ComPtr<ID3D11BlendState> com_blend_state_01 = nullptr;
 	ComPtr<ID3D11BlendState> com_blend_state_0011 = nullptr;
@@ -60,27 +55,6 @@ namespace renderer {
 
 		{
 			cbAtmosphere.Create(renderer);
-
-			{
-				D3D11_RASTERIZER_DESC rasterizer_desc = {};
-				rasterizer_desc.FillMode = D3D11_FILL_SOLID;
-				rasterizer_desc.CullMode = D3D11_CULL_NONE;
-				rasterizer_desc.FrontCounterClockwise = true;
-
-				HRESULT h_result = renderer.GetDevice()->CreateRasterizerState(&rasterizer_desc, com_rasterizer_state.GetAddressOf());
-				//if(h_result != S_OK) error_win32("CreateRasterizerState", (DWORD)h_result);
-			}
-
-			{
-				D3D11_SAMPLER_DESC sampler_desc = {};
-				sampler_desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
-				sampler_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-				sampler_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-				sampler_desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-
-				HRESULT h_result = renderer.GetDevice()->CreateSamplerState(&sampler_desc, com_sampler_state.GetAddressOf());
-				//if(h_result != S_OK) error_win32("CreateSamplerState", (DWORD)h_result);
-			}
 
 			{
 				D3D11_DEPTH_STENCIL_DESC depth_stencil_desc = {};
@@ -227,33 +201,6 @@ namespace renderer {
 		//}
 	}
 
-	int resize(LPARAM lparam) {
-		//if(com_swap_chain) {
-		//	backbuffer_width = (UINT)LOWORD(lparam);
-		//	backbuffer_height = (UINT)HIWORD(lparam);
-		//	HRESULT h_result;
-		//	ComPtr<ID3D11Texture2D> com_backbuffer_tex = nullptr;
-		//	h_result = com_swap_chain->GetBuffer(0, IID_PPV_ARGS(com_backbuffer_tex.GetAddressOf()));
-		//	if(h_result != S_OK) { error_win32("GetBuffer", (DWORD)h_result); return 0; };
-		//	com_backbuffer_tex.Reset();
-		//	com_backbuffer_rtv.Reset();
-		//	com_swap_chain->ResizeBuffers(0, backbuffer_width, backbuffer_height, DXGI_FORMAT_UNKNOWN, 0);
-		//	h_result = com_swap_chain->GetBuffer(0, IID_PPV_ARGS(com_backbuffer_tex.GetAddressOf()));
-		//	if(h_result != S_OK) { error_win32("GetBuffer", (DWORD)h_result); return 0; };
-		//	//h_result = renderer.GetDevice()->CreateRenderTargetView(com_backbuffer_tex.Get(), NULL, com_backbuffer_rtv.GetAddressOf());
-		//	//if(h_result != S_OK) { error_win32("CreateRenderTargetView", (DWORD)h_result); return 0; };
-		//	return 1;
-		//}
-		return 0;
-	}
-
-	ComPtr<ID3D11SamplerState>& get_sampler(){
-		return com_sampler_state;
-	}
-
-	ComPtr<ID3D11RasterizerState>& get_rasterizer_state(){
-		return com_rasterizer_state;
-	}
 
 	ComPtr<ID3D11DepthStencilState>& get_depth_stencil_state(){
 		return com_depth_stencil_state;
@@ -283,10 +230,10 @@ namespace renderer {
 		com_device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 		renderer.m_viewPort.Bind(renderer);
-		com_device_context->RSSetState(com_rasterizer_state.Get());
+		
+		CommonStates states(renderer.GetDevice());
+		com_device_context->RSSetState(states.CullNone());
 
-		ID3D11SamplerState *a_ps_samplers[] = { com_sampler_state.Get() };
-		com_device_context->PSSetSamplers(0, count_of(a_ps_samplers), a_ps_samplers);
 		ID3D11ShaderResourceView *a_srvs[] = { 
 			atmosphere::get_transmittance_texture().m_srv
 			, atmosphere::get_scattering_texture().m_srv
@@ -294,10 +241,8 @@ namespace renderer {
 			, atmosphere::get_irradiance_texture().m_srv 
 		};
 		com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-		//com_device_context->PSSetShader(atmosphere::get_demo_ps().Get(), 0, 0);
 
 		com_device_context->OMSetDepthStencilState(com_depth_stencil_state.Get(), 0);
-		//com_device_context->OMSetRenderTargets(1, &renderer.m_renderTargetView, nullptr);
 
 		com_device_context->Draw(4, 0);
 

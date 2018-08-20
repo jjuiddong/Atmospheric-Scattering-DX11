@@ -616,16 +616,15 @@ namespace atmosphere
 		preComputeShader.BeginPass(renderer, 0);
 
 		com_device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		ID3D11SamplerState *a_samplers[] = { renderer::get_sampler().Get() };
-		com_device_context->PSSetSamplers(0, count_of(a_samplers), a_samplers);
-		com_device_context->RSSetState(renderer::get_rasterizer_state().Get());
+	
+		CommonStates states(renderer.GetDevice());
+		com_device_context->RSSetState(states.CullNone());
 		com_device_context->OMSetDepthStencilState(renderer::get_depth_stencil_state().Get(), 0);
 		cbPrecompute.Update(renderer, 0);
 
 		{	// Precompute Transmittance
 			D3D11_VIEWPORT viewport = { 0.0, 0.0, TRANSMITTANCE_TEXTURE_WIDTH, TRANSMITTANCE_TEXTURE_HEIGHT, 0.0, 1.0 };
 			com_device_context->RSSetViewports(1, &viewport);
-			//com_device_context->PSSetShader(a_com_precompute_shaders[TRANSMITTANCE_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = { transmittance_texture.m_rtv};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			com_device_context->Draw(4, 0);
@@ -647,10 +646,10 @@ namespace atmosphere
 			com_device_context->RSSetViewports(1, &viewport);
 			ID3D11ShaderResourceView *a_srvs[] = { transmittance_texture.m_srv };
 			com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-			//com_device_context->PSSetShader(a_com_precompute_shaders[DELTA_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
 			ID3D11RenderTargetView *a_rtvs[] = { delta_irradiance_texture.m_rtv, irradiance_texture.m_rtv };
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 			if(need_blend) com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
+			
 			com_device_context->Draw(4, 0);
 			ID3D11RenderTargetView *const a_null_rtvs[count_of(a_rtvs)] = {};
 			com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_null_rtvs, nullptr);
@@ -713,7 +712,6 @@ namespace atmosphere
 						, delta_irradiance_texture.m_srv
 					};
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-					//com_device_context->PSSetShader(a_com_precompute_shaders[SCATTERING_DENSITY_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { delta_scattering_density_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 
@@ -741,12 +739,12 @@ namespace atmosphere
 						, delta_mie_scattering_texture.m_srv
 						, delta_rayleigh_scattering_texture.m_srv };
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-					//com_device_context->PSSetShader(a_com_precompute_shaders[INDIRECT_IRRADIANCE_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { 
 						delta_irradiance_texture.m_rtv
 						, irradiance_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 					com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
+
 					com_device_context->Draw(4, 0);
 
 					ID3D11ShaderResourceView *const a_null_srvs[count_of(a_srvs)] = {};
@@ -769,13 +767,13 @@ namespace atmosphere
 						transmittance_texture.m_srv
 						, delta_scattering_density_texture.m_srv };
 					com_device_context->PSSetShaderResources(0, count_of(a_srvs), a_srvs);
-					//com_device_context->PSSetShader(a_com_precompute_shaders[MULTIPLE_SCATTERING_SHADER_INDEX].Get(), 0, 0);
 					ID3D11RenderTargetView *a_rtvs[] = { 
 						delta_rayleigh_scattering_texture.m_rtv
 						/*delta_multiple_scattering_texture.m_rtv*/
 						, scattering_texture.m_rtv };
 					com_device_context->OMSetRenderTargets(count_of(a_rtvs), a_rtvs, nullptr);
 					com_device_context->OMSetBlendState(renderer::get_blend_state_01().Get(), NULL, 0xffffffff);
+
 					com_device_context->DrawInstanced(4, SCATTERING_TEXTURE_DEPTH, 0, 0);
 
 					ID3D11ShaderResourceView *const a_null_srvs[count_of(a_srvs)] = {};
@@ -795,9 +793,13 @@ namespace atmosphere
 		ID3D11DeviceContext *com_device_context = renderer.GetDevContext();
 		com_device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		//com_device_context->VSSetShader(com_precompute_vs.Get(), 0, 0);
-		ID3D11SamplerState *a_samplers[] = { renderer::get_sampler().Get() };
-		com_device_context->PSSetSamplers(0, count_of(a_samplers), a_samplers);
-		com_device_context->RSSetState(renderer::get_rasterizer_state().Get());
+		//ID3D11SamplerState *a_samplers[] = { renderer::get_sampler().Get() };
+		//com_device_context->PSSetSamplers(0, count_of(a_samplers), a_samplers);
+		
+		CommonStates states(renderer.GetDevice());
+		com_device_context->RSSetState(states.CullNone());
+
+		//com_device_context->RSSetState(renderer::get_rasterizer_state().Get());
 		com_device_context->OMSetDepthStencilState(renderer::get_depth_stencil_state().Get(), 0);
 		cbPrecompute.Update(renderer, 0);
 
