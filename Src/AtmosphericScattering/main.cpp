@@ -2,6 +2,7 @@
 // Atmospheric Scattering
 //
 #include "stdafx.h"
+#include "main.h"
 #include "renderer.h"
 #include "atmosphere.h"
 #include "gui.h"
@@ -9,43 +10,15 @@
 using namespace graphic;
 using namespace framework;
 
-class cViewer : public framework::cGameMain2
-{
-public:
-	cViewer();
-	virtual ~cViewer();
-
-	virtual bool OnInit() override;
-	virtual void OnUpdate(const float deltaSeconds) override;
-	virtual void OnRender(const float deltaSeconds) override;
-	virtual void OnEventProc(const sf::Event &evt) override;
-
-public:
-	void UpdateLookAt();
-	void OnWheelMove(const float delta, const POINT mousePt);
-	void OnMouseMove(const POINT mousePt);
-	void OnMouseDown(const sf::Mouse::Button &button, const POINT mousePt);
-	void OnMouseUp(const sf::Mouse::Button &button, const POINT mousePt);
-
-
-public:
-	// MouseMove Variable
-	POINT m_viewPos;
-	POINT m_mousePos; // window 2d mouse pos
-	Vector3 m_mousePickPos; // mouse cursor pos in ground picking
-	bool m_mouseDown[3]; // Left, Right, Middle
-	float m_rotateLen;
-	Plane m_groundPlane1;
-	Plane m_groundPlane2;
-};
 
 INIT_FRAMEWORK3(cViewer);
+cViewer *g_view = NULL;
 
 
 cViewer::cViewer()
 	: m_groundPlane1(Vector3(0, 1, 0), 0)
 	, m_groundPlane2(Vector3(0, -1, 0), 0)
-
+	, m_rotateLen(10.f)
 {
 	m_windowName = L"Atmospheric Scattering";
 	//m_isLazyMode = true;
@@ -66,7 +39,7 @@ bool cViewer::OnInit()
 
 	const float WINSIZE_X = float(m_windowRect.right - m_windowRect.left);
 	const float WINSIZE_Y = float(m_windowRect.bottom - m_windowRect.top);
-	m_camera.SetCamera(Vector3(-30, 100, -100), Vector3(0, 0, 0), Vector3(0, 1, 0));
+	m_camera.SetCamera(Vector3(-30, 100, 9000), Vector3(0, 0, 0), Vector3(0, 1, 0));
 	m_camera.SetProjection(MATH_PI / 4.f, (float)WINSIZE_X / (float)WINSIZE_Y, 1.0f, 10000.f);
 	m_camera.SetViewPort(WINSIZE_X, WINSIZE_Y);
 
@@ -78,8 +51,11 @@ bool cViewer::OnInit()
 	GetMainLight().SetPosition(lightPos);
 	GetMainLight().SetDirection((lightLookat - lightPos).Normal());
 
+	g_view = this;
 	renderer::init(m_renderer);
 	atmosphere::init(m_renderer);
+
+	m_grid.Create(m_renderer, 1000, 1000, 100, 100);
 
 	m_gui.SetContext();
 
@@ -168,6 +144,12 @@ void cViewer::OnUpdate(const float deltaSeconds)
 void cViewer::OnRender(const float deltaSeconds)
 {
 	renderer::render_frame(m_renderer);
+	
+	cAutoCam cam(&m_camera);
+	
+	//m_camera.SetEyePos(renderer::GetCameraPos());
+	m_camera.Bind(m_renderer);
+	m_grid.Render(m_renderer);
 }
 
 

@@ -13,3 +13,5 @@ using namespace DirectX;
 template <typename T, uint32_t N>
 constexpr uint32_t count_of(T(&)[N]) { return N; }
 
+class cViewer;
+extern cViewer *g_view;

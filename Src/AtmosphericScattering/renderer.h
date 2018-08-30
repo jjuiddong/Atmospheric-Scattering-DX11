@@ -10,6 +10,8 @@ namespace renderer {
 
 	void present_frame();
 
+	Vector3 GetCameraPos();
+
 	Microsoft::WRL::ComPtr<ID3D11SamplerState> &get_sampler();
 
 	Microsoft::WRL::ComPtr<ID3D11DepthStencilState> &get_depth_stencil_state();

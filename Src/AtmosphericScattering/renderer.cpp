@@ -4,6 +4,7 @@
 #include <dxgi1_5.h>
 #include "gui.h"
 #include "atmosphere.h"
+#include "main.h"
 
 using namespace graphic;
 
@@ -37,6 +38,7 @@ namespace renderer {
 	};
 
 	cConstantBuffer<AtmosphereConstantBuffer> cbAtmosphere;
+	Vector3 mCamPos;
 
 
 	bool check_full_precision_rgb_support() {
@@ -104,7 +106,12 @@ namespace renderer {
 		}
 	}
 
-	void set_view(gui::GuiData& gui_data, float view_distance, float view_zenith_angle_in_radians, float view_azimuth_angle_in_radians, float sun_zenith_angle_in_radians, float sun_azimuth_angle_in_radians,float exposure) {
+	void set_view(gui::GuiData& gui_data, float view_distance
+		, float view_zenith_angle_in_radians
+		, float view_azimuth_angle_in_radians
+		, float sun_zenith_angle_in_radians
+		, float sun_azimuth_angle_in_radians
+		,float exposure) {
 		gui_data.view_distance = view_distance;
 		gui_data.view_zenith_angle_in_degrees = XMConvertToDegrees(view_zenith_angle_in_radians);
 		gui_data.view_azimuth_angle_in_degrees = XMConvertToDegrees(view_azimuth_angle_in_radians);
@@ -164,7 +171,18 @@ namespace renderer {
 			cbAtmosphere.m_v->world_from_view = world_from_view;
 
 			cbAtmosphere.m_v->view_pos_ws = { world_from_view(0,3),world_from_view(1,3),world_from_view(2,3) };
+			
+
+			//XMStoreFloat4x4(&cbAtmosphere.m_v->view_from_clip, g_view->m_camera.GetProjectionMatrix().GetMatrixXM());
+			XMStoreFloat4x4(&cbAtmosphere.m_v->world_from_view, g_view->m_camera.GetViewMatrix().GetMatrixXM());
+			const Vector3 eyePos = g_view->m_camera.GetEyePos() / 1000.f;
+			cbAtmosphere.m_v->view_pos_ws = { eyePos.x, eyePos.y, eyePos.z };
 			cbAtmosphere.m_v->earth_center_pos_ws = { 0.f,0.f, -6360.0 };
+
+
+			//mCamPos = Vector3(
+			//	world_from_view(0, 3), world_from_view(1, 3), world_from_view(2, 3)
+			//);
 
 			cos_theta = (float)cos(XMConvertToRadians(gui_data.sun_zenith_angle_in_degrees));
 			sin_theta = (float)sin(XMConvertToRadians(gui_data.sun_zenith_angle_in_degrees));
@@ -252,6 +270,10 @@ namespace renderer {
 
 	void present_frame() {
 		//com_swap_chain->Present(1, 0);
+	}
+
+	Vector3 GetCameraPos() {
+		return mCamPos;
 	}
 
 } // namespace renderer

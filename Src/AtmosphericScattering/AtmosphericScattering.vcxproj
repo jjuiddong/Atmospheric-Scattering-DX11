@@ -171,6 +171,7 @@
     <ClInclude Include="atmosphere.h" />
     <ClInclude Include="atmo_def.h" />
     <ClInclude Include="gui.h" />
+    <ClInclude Include="main.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>

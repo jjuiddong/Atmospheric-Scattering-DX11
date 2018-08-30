@@ -14,5 +14,6 @@
     <ClInclude Include="atmosphere.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="gui.h" />
+    <ClInclude Include="main.h" />
   </ItemGroup>
 </Project>
